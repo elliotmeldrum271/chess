@@ -663,7 +663,9 @@ def play(p_0, p_1, print_visuals=True):
         try:
             board.make_move(origin, target)
             cur_player = next_player(cur_player)
-            if board.has_winner or board.half_move_clock >= 100:
+            if board.has_winner or not any(
+                    piece.all_legal_moves for piece in board.color_pieces_flat(
+                        board.who)) or board.half_move_clock >= 100:
                 game_over = True
             if print_visuals:
                 clear_screen()
