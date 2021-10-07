@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ Main driver for a chess game."""
 
 from chess import play

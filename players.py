@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ Some players.
 TODO:
     -implement an Alpha-Beta algorithm to play chess
