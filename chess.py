@@ -678,9 +678,11 @@ def play(p_0, p_1, print_visuals=True):
                 clear_screen()
                 print(str(exp) + "\n")
 
+    if print_visuals:
+        print(board)
     if board.checkmate(Color.WHITE):
-        print("White wins")
+        print("White wins!")
     elif board.checkmate(Color.BLACK):
-        print("Black wins")
+        print("Black wins!")
     else:
-        print("Draw")
+        print("Draw.")
