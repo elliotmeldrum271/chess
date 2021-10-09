@@ -45,7 +45,7 @@ class Location:
         def idx_to_letter(idx: int) -> str:
             return chr(idx + 97)
 
-        return idx_to_letter(row_col[1]) + str(row_col[0] + 1)
+        return idx_to_letter(row_col[1]) + str(8 - row_col[0])
 
     @classmethod
     def row_col_from_algebraic(cls, algebraic: str) -> tuple:
@@ -53,7 +53,7 @@ class Location:
         def letter_to_idx(ltr: str) -> int:
             return ord(ltr) - 97
 
-        return (int(algebraic[1:]) - 1, letter_to_idx(algebraic[0]))
+        return (8 - int(algebraic[1:]), letter_to_idx(algebraic[0]))
 
     @property
     def in_bounds(self) -> bool:
@@ -302,7 +302,7 @@ class Board:
     def __str__(self) -> str:
         """ Return a human readable string displaying the board."""
         str_rep = "   a b c d e f g h\n"
-        i = 1
+        i = 8
         for row in self.board_rep:
             str_rep += str(i) + "  "
             for piece in row:
@@ -312,7 +312,7 @@ class Board:
                     str_rep += str(piece)
                 str_rep += " "
             str_rep += " " + str(i) + "\n"
-            i += 1
+            i -= 1
         str_rep += "   a b c d e f g h"
         return str_rep
 
@@ -442,19 +442,19 @@ class King(Piece):
             if all(
                     self.board.get_piece_at(Location(
                         algebraic=loc)) is Board.empty
-                    for loc in [f"f{self.row + 1}", f"g{self.row + 1}"]):
+                    for loc in [f"f{8 - self.row}", f"g{8 - self.row}"]):
                 if not self.moving_into_check(
-                        Location(algebraic=f"f{self.row + 1}")):
-                    yield Location(algebraic=f"g{self.row + 1}")
+                        Location(algebraic=f"f{8 - self.row}")):
+                    yield Location(algebraic=f"g{8 - self.row}")
 
         if "q" in relevant_castling_rights:
             if all(
                     self.board.get_piece_at(Location(
                         algebraic=loc)) is Board.empty for loc in
-                [f"b{self.row + 1}", f"c{self.row + 1}", f"d{self.row + 1}"]):
+                [f"b{8 - self.row}", f"c{8 - self.row}", f"d{8 - self.row}"]):
                 if not self.moving_into_check(
-                        Location(algebraic=f"d{self.row + 1}")):
-                    yield Location(algebraic=f"c{self.row + 1}")
+                        Location(algebraic=f"d{8 - self.row}")):
+                    yield Location(algebraic=f"c{8 - self.row}")
 
 
 class Queen(Piece):
