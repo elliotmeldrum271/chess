@@ -442,19 +442,19 @@ class King(Piece):
             if all(
                     self.board.get_piece_at(Location(
                         algebraic=loc)) is Board.empty
-                    for loc in [f"f{self.row + 1}", f"g{self.row + 1}"]):
+                    for loc in [f"f{8 - self.row}", f"g{8 - self.row}"]):
                 if not self.moving_into_check(
-                        Location(algebraic=f"f{self.row + 1}")):
-                    yield Location(algebraic=f"g{self.row + 1}")
+                        Location(algebraic=f"f{8 - self.row}")):
+                    yield Location(algebraic=f"g{8 - self.row}")
 
         if "q" in relevant_castling_rights:
             if all(
                     self.board.get_piece_at(Location(
                         algebraic=loc)) is Board.empty for loc in
-                [f"b{self.row + 1}", f"c{self.row + 1}", f"d{self.row + 1}"]):
+                [f"b{8 - self.row}", f"c{8 - self.row}", f"d{8 - self.row}"]):
                 if not self.moving_into_check(
-                        Location(algebraic=f"d{self.row + 1}")):
-                    yield Location(algebraic=f"c{self.row + 1}")
+                        Location(algebraic=f"d{8 - self.row}")):
+                    yield Location(algebraic=f"c{8 - self.row}")
 
 
 class Queen(Piece):
