@@ -652,8 +652,8 @@ def clear_screen():
 
 def play(p_0, p_1, print_visuals=True):
     """ Play a game of chess."""
-    def next_player(player):
-        if player == p_0:
+    def next_player():
+        if cur_player == p_0:
             return p_1
         return p_0
 
@@ -667,7 +667,7 @@ def play(p_0, p_1, print_visuals=True):
         origin, target = cur_player.move(board)
         try:
             board.make_move(origin, target)
-            cur_player = next_player(cur_player)
+            cur_player = next_player()
             if board.has_winner or not any(
                     piece.all_legal_moves for piece in board.color_pieces_flat(
                         board.who)) or board.half_move_clock >= 100:
@@ -687,7 +687,10 @@ def play(p_0, p_1, print_visuals=True):
         print(board)
     if board.checkmate(Color.WHITE):
         print("Black wins!")
+        return "b"
     elif board.checkmate(Color.BLACK):
         print("White wins!")
+        return "w"
     else:
         print("Draw.")
+        return "-"
