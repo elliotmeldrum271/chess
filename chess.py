@@ -152,6 +152,7 @@ class Board:
         if en_passant_capture:
             self.board_rep[origin.row][target.col] = Board.empty
 
+
     def update_en_passant_target(self, origin: Location, target: Location,
                                  pawn_was_moved: bool) -> None:
         """ Update the en passant target."""
@@ -202,6 +203,8 @@ class Board:
             for elem in castling_rights_to_remove:
                 if elem in self.castling_rights:
                     self.castling_rights.remove(elem)
+        if not self.castling_rights:
+            self.castling_rights = ['-']
 
     def check(self, color: Color) -> bool:
         """ Return True if color is in check, False otherwise."""
@@ -314,6 +317,7 @@ class Board:
             str_rep += " " + str(i) + "\n"
             i -= 1
         str_rep += "   a b c d e f g h"
+        str_rep += '\n' + self.fen_str + '\n'
         return str_rep
 
     def is_legal_move_general(self, origin, target) -> None:
@@ -388,6 +392,7 @@ class Piece:
             self.col]
         brd.board_rep[self.row][self.col] = Board.empty
         brd.board_rep[target.row][target.col].location = target
+
         return brd.check(self.color)
 
     def move_generator(self):
@@ -640,7 +645,7 @@ class IllegalMoveError(Exception):
 
 def clear_screen():
     """ Clear the screen and move the cursor down 10 lines."""
-    system("clear")
+    #  system("clear")
     for _ in range(9):
         print()
 
@@ -681,8 +686,8 @@ def play(p_0, p_1, print_visuals=True):
     if print_visuals:
         print(board)
     if board.checkmate(Color.WHITE):
-        print("White wins!")
-    elif board.checkmate(Color.BLACK):
         print("Black wins!")
+    elif board.checkmate(Color.BLACK):
+        print("White wins!")
     else:
         print("Draw.")
