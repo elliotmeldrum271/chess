@@ -645,7 +645,7 @@ class IllegalMoveError(Exception):
 
 def clear_screen():
     """ Clear the screen and move the cursor down 10 lines."""
-    #  system("clear")
+    system("clear")
     for _ in range(9):
         print()
 
@@ -683,14 +683,18 @@ def play(p_0, p_1, print_visuals=True):
                 clear_screen()
                 print(str(exp) + "\n")
 
+    if board.checkmate(Color.WHITE):
+        winner = 'b'
+    elif board.checkmate(Color.BLACK):
+        winner = 'w'
+    else:
+        winner = '-'
     if print_visuals:
         print(board)
-    if board.checkmate(Color.WHITE):
-        print("Black wins!")
-        return "b"
-    elif board.checkmate(Color.BLACK):
-        print("White wins!")
-        return "w"
-    else:
-        print("Draw.")
-        return "-"
+        if winner == 'b':
+            print("Black wins!")
+        elif winner == 'w':
+            print("White wins!")
+        else:
+            print("Draw.")
+    return winner
