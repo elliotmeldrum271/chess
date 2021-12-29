@@ -2,14 +2,26 @@
 """ Main driver for a chess game."""
 
 from chess import play
-from players import HumanPlayer
+from players import HumanPlayer, RandomPlayer
 
 
+players = {'h': HumanPlayer, 'r': RandomPlayer}
 def main():
     """ Run a game of chess."""
-    p_0 = HumanPlayer()
-    p_1 = HumanPlayer()
-    play(p_0, p_1)
+    try:
+        p_0 = p_1 = None
+        p_0 = p_1 = RandomPlayer
+
+        while not p_0:
+            p_0_input = input("Select the white player. Enter 'h' to play as a human, 'r' to have random moves be played.\n")
+            p_0 = players.get(p_0_input, None)
+        while not p_1:
+            p_1_input = input("Select the white player. Enter 'h' to play as a human, 'r' to have random moves be played.\n")
+            p_1 = players.get(p_1_input, None)
+
+        play(p_0, p_1)
+    except KeyboardInterrupt:
+        print('\nAborting Game')
 
 
 if __name__ == "__main__":
