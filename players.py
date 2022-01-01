@@ -7,7 +7,7 @@ TODO:
 """
 
 import random
-from chess import Location
+from chess import Location, Move
 from typing import Tuple
 
 
@@ -34,21 +34,21 @@ class HumanPlayer:
                     ))
             except ValueError:
                 pass
-        return (origin, target)
+        return Move(origin, target)
 
 
 
 class RandomPlayer:
     """ A class that makes a random legal move."""
     @classmethod
-    def move(cls, board) -> Tuple[Location]:
+    def move(cls, board) -> Move:
         """ Return a random move."""
         pieces = board.color_pieces_flat(board.who)
         moves = []
         for piece in pieces:
-            moves.extend([(piece.location, target) for target in
+            moves.extend([move for move in
                           piece.all_legal_moves])
         move = random.choice(moves)
-        print(move[0].algebraic, move[1].algebraic)
-        #  input()
+        #  print(move[0].algebraic, move[1].algebraic)
+        input()
         return move
