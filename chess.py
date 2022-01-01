@@ -8,6 +8,10 @@ from os import system
 from enum import Enum
 from typing import List
 
+checkmatecount = 0
+all_legal_moves_count = 0
+is_legal_dest_count = 0
+
 
 class Color(Enum):
     """Colors."""
@@ -60,12 +64,27 @@ class Location:
         """ Check if self is in bounds."""
         return 0 <= self.row <= 7 and 0 <= self.col <= 7
 
-    def __eq__(self, other: Color) -> bool:
+    def __eq__(self, other) -> bool:
         return self.algebraic == other.algebraic
 
 
+class Move:
+    """ A class to hold information about a particular move."""
+    def __init__(self, origin: Location, target: Location, promotion=None):
+        self.origin = origin
+        self.target = target
+        self.promotion = promotion
+
+    def __eq__(self, other) -> bool:
+        eq_origins = self.origin == other.origin
+        eq_targets = self.target == other.target
+        eq_promotions = self.promotion == other.promotion
+        return eq_origins and eq_targets and eq_promotions
+
+
 class Board:
-    """ Class to represent a chess board.
+    """
+    A class to represent a chess board.
 
     board_rep:          An 8x8 matrix, where each element is either a piece or Board.empty.
     castling_rights:    A list describing each player's castling rights.
@@ -74,6 +93,7 @@ class Board:
     en_passant_target:  The location of the en passant target.
     who:                The color of the current player.
     """
+
     initial_setup = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     empty = ()
 
@@ -114,15 +134,29 @@ class Board:
         self.half_move_clock = int(fen[4])
         self.full_move_number = int(fen[5])
 
-    def make_move(self, origin: Location, target: Location) -> None:
+    def make_move(self, move: Move) -> None:
         """ If given move is illegal, raise IllegalMoveError, otherwise make the move."""
+        origin = move.origin
+        target = move.target
         piece_to_move = self.board_rep[origin.row][origin.col]
 
         # if the move is not legal, an error will be thrown in the next two lines
         self.is_legal_move_general(origin, target)
-        piece_to_move.is_legal(target)
+        piece_to_move.is_legal(move)
 
         pawn_was_moved = isinstance(piece_to_move, Pawn)
+
+        if pawn_was_moved:
+            if target.row == piece_to_move.last_row:
+                if move.promotion is None:
+                    raise PawnNeedsPromotion
+                color = piece_to_move.color
+                location = piece_to_move.location
+                board = piece_to_move.board
+                piece_to_move = PIECE_TYPES[move.promotion](location, color, board)
+
+
+
         en_passant_capture = self.en_passant_target == target and pawn_was_moved
         self.update_en_passant_target(origin, target, pawn_was_moved)
         self.update_clocks(target, en_passant_capture, pawn_was_moved)
@@ -151,7 +185,6 @@ class Board:
         self.board_rep[origin.row][origin.col] = Board.empty
         if en_passant_capture:
             self.board_rep[origin.row][target.col] = Board.empty
-
 
     def update_en_passant_target(self, origin: Location, target: Location,
                                  pawn_was_moved: bool) -> None:
@@ -209,15 +242,20 @@ class Board:
     def check(self, color: Color) -> bool:
         """ Return True if color is in check, False otherwise."""
         king_location = self.player_king(color).location
+        opp_color = Color.other(color)
         for piece in self.flat_board_rep:
-            if piece is not Board.empty and piece.color is not color:
-                for target in piece.move_generator():
-                    if target == king_location:
+            if piece is not Board.empty and piece.color is opp_color:
+                for move in piece.move_generator():
+                    if move.target == king_location:
                         return True
         return False
 
     def checkmate(self, color: Color) -> bool:
         """ Return True if color is in checkmate, False otherwise."""
+
+        global checkmatecount
+        checkmatecount += 1
+
         if self.check(color) is False:
             return False
         for piece in self.color_pieces_flat(color):
@@ -373,20 +411,29 @@ class Piece:
 
     @property
     def all_legal_moves(self) -> list:
-        """ Return a list of all legal target locations for this piece."""
-        targets = []
-        for target in self.move_generator():
-            if not self.moving_into_check(target):
-                targets.append(target)
-        return targets
+        """ Return a list of all legal moves for this piece."""
 
-    def is_legal(self, target: Location) -> None:
+        global all_legal_moves_count
+        all_legal_moves_count += 1
+
+        moves = []
+        for move in self.move_generator():
+            if not self.moving_into_check(move):
+                moves.append(move)
+        return moves
+
+    def is_legal(self, move: Move) -> None:
         """ Raise an error if self can not legally move to target."""
-        if target not in self.all_legal_moves:
-            raise IllegalMoveError("Move is not legal")
 
-    def moving_into_check(self, target: Location) -> bool:
+        global is_legal_dest_count
+        is_legal_dest_count += 1
+
+        if move not in self.all_legal_moves:
+            raise IllegalMoveError("Move is not legal.")
+
+    def moving_into_check(self, move: Move) -> bool:
         """ Return True if self moving to target would result in self being in check."""
+        target = move.target
         brd = Board(self.board.fen_str)
         brd.board_rep[target.row][target.col] = brd.board_rep[self.row][
             self.col]
@@ -397,7 +444,7 @@ class Piece:
 
     def move_generator(self):
         """ Return a generator which yields target locations not considering whether
-        they would be 'moving into check'"""
+        they would be 'moving into check'."""
         raise NotImplementedError
 
 
@@ -429,12 +476,14 @@ class King(Piece):
                                        self.col + direction[1]))
             if target.in_bounds:
                 if own_squares[target.row][target.col] == 0:
-                    yield target
+                    yield Move(self.location, target)
         yield from self.castle_move_generator()
 
     def castle_move_generator(self):
-        """ Return a generator which yields castling moves, not considering
-        whether they would be moving through or into check."""
+        """ Return a generator which yields castling moves.
+        This generator yields moves that are not 'moving through check',
+        but may yield moves that are 'moving into check'.
+        """
         if self.color == Color.WHITE:
             relevant_castling_rights = filter(lambda elem: elem.isupper(),
                                               self.board.castling_rights)
@@ -449,8 +498,10 @@ class King(Piece):
                         algebraic=loc)) is Board.empty
                     for loc in [f"f{8 - self.row}", f"g{8 - self.row}"]):
                 if not self.moving_into_check(
-                        Location(algebraic=f"f{8 - self.row}")):
-                    yield Location(algebraic=f"g{8 - self.row}")
+                        Move(self.location,
+                             Location(algebraic=f"f{8 - self.row}"))):
+                    yield Move(self.location,
+                               Location(algebraic=f"g{8 - self.row}"))
 
         if "q" in relevant_castling_rights:
             if all(
@@ -458,8 +509,10 @@ class King(Piece):
                         algebraic=loc)) is Board.empty for loc in
                 [f"b{8 - self.row}", f"c{8 - self.row}", f"d{8 - self.row}"]):
                 if not self.moving_into_check(
-                        Location(algebraic=f"d{8 - self.row}")):
-                    yield Location(algebraic=f"c{8 - self.row}")
+                        Move(self.location,
+                             Location(algebraic=f"d{8 - self.row}"))):
+                    yield Move(self.location,
+                               Location(algebraic=f"c{8 - self.row}"))
 
 
 class Queen(Piece):
@@ -492,7 +545,7 @@ class Queen(Piece):
             while target.in_bounds:
                 if own_squares[target.row][target.col]:
                     break
-                yield target
+                yield Move(self.location, target)
                 if opp_squares[target.row][target.col]:
                     break
                 target = Location(row_col=(target.row + direction[0],
@@ -525,7 +578,7 @@ class Rook(Piece):
             while target.in_bounds:
                 if own_squares[target.row][target.col]:
                     break
-                yield target
+                yield Move(self.location, target)
                 if opp_squares[target.row][target.col]:
                     break
                 target = Location(row_col=(target.row + direction[0],
@@ -553,7 +606,7 @@ class Bishop(Piece):
                 while target.in_bounds:
                     if own_squares[target.row][target.col]:
                         break
-                    yield target
+                    yield Move(self.location, target)
                     if opp_squares[target.row][target.col]:
                         break
                     target = Location(row_col=(target.row + vert_incr,
@@ -582,7 +635,7 @@ class Knight(Piece):
                                  self.col + horiz_direction * horiz_distance))
                     if target.in_bounds and not own_squares[target.row][
                             target.col]:
-                        yield target
+                        yield Move(self.location, target)
 
 
 class Pawn(Piece):
@@ -590,12 +643,14 @@ class Pawn(Piece):
     def __init__(self, location: Location, color: Color, board):
         if color == Color.WHITE:
             symbol = "\N{white chess pawn}"
-            self.starting_row = 6
+            self.starting_row = 6 # in 8x8 matrix coords
             self.forward = -1
+            self.last_row = 0 # in 8x8 matrix coords
         else:
             symbol = "\N{black chess pawn}"
-            self.starting_row = 1
+            self.starting_row = 1 # in 8x8 matrix coords
             self.forward = 1
+            self.last_row = 7 # in 8x8 matrix coords
         super().__init__(location, color, board, symbol)
 
     def move_generator(self):
@@ -609,24 +664,36 @@ class Pawn(Piece):
         one_sqr_fwd = Location(row_col=(self.row + self.forward, self.col))
         if one_sqr_fwd.in_bounds \
                 and self.board.board_rep[one_sqr_fwd.row][one_sqr_fwd.col] is Board.empty:
-            yield one_sqr_fwd
+            if one_sqr_fwd.row == self.last_row:
+                yield from self.promotion_move_generator(one_sqr_fwd)
+            else:
+                yield Move(self.location, one_sqr_fwd)
 
         two_sqr_fwd = Location(row_col=(self.row + 2 * self.forward, self.col))
         if self.row == self.starting_row \
                 and self.board.board_rep[one_sqr_fwd.row][one_sqr_fwd.col] is Board.empty \
                 and self.board.board_rep[two_sqr_fwd.row][two_sqr_fwd.col] is Board.empty:
-            yield Location(row_col=(self.row + 2 * self.forward, self.col))
+            yield Move(
+                self.location,
+                Location(row_col=(self.row + 2 * self.forward, self.col)))
 
         attack_right = Location(row_col=(self.row + self.forward,
                                          self.col + 1))
         if attack_right.in_bounds \
                 and opp_squares[attack_right.row][attack_right.col]:
-            yield attack_right
+            yield Move(self.location, attack_right)
 
         attack_left = Location(row_col=(self.row + self.forward, self.col - 1))
         if attack_left.in_bounds and opp_squares[attack_left.row][
                 attack_left.col]:
-            yield attack_left
+            yield Move(self.location, attack_left)
+
+    def promotion_move_generator(self, target: Location) -> tuple:
+        """ Return a generator which yields moves where the pawn is promoted."""
+        yield Move(self.location, target, 'q')
+        yield Move(self.location, target, 'r')
+        yield Move(self.location, target, 'n')
+        yield Move(self.location, target, 'b')
 
 
 PIECE_TYPES = {
@@ -641,6 +708,11 @@ PIECE_TYPES = {
 
 class IllegalMoveError(Exception):
     """ An error that is raised when illegal moves are attempted."""
+
+
+class PawnNeedsPromotion(Exception):
+    """ An error that is raised board.make_move is instructed to move a pawn to
+    the end of the board without specifying the piece to promote the pawn to."""
 
 
 def clear_screen():
@@ -664,9 +736,9 @@ def play(p_0, p_1, print_visuals=True):
         if print_visuals:
             print(board)
             print(f"It is {board.who.name.lower()}'s turn.")
-        origin, target = cur_player.move(board)
+        move = cur_player.move(board)
         try:
-            board.make_move(origin, target)
+            board.make_move(move)
             cur_player = next_player()
             if board.has_winner or not any(
                     piece.all_legal_moves for piece in board.color_pieces_flat(
@@ -697,4 +769,9 @@ def play(p_0, p_1, print_visuals=True):
             print("White wins!")
         else:
             print("Draw.")
+    print('all_legal_moves_count:', all_legal_moves_count)
+    print('checkmatecount:', checkmatecount)
+    print('is_legal_dest_count:', is_legal_dest_count)
+    print(board.fen_str)
+
     return winner
