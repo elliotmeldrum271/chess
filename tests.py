@@ -17,10 +17,12 @@ TODO:
     - test checkmate more
 """
 
+import argparse
 from chess import *
+from players import RandomPlayer
 
 
-def test():
+def test(num_games):
     """
     Run some tests for Chess.py
     >>> b = Board()
@@ -507,4 +509,53 @@ def test():
        a b c d e f g h
     2kr1bnr/3p1ppp/b1P5/p3n3/pP3P1q/4P1P1/P1P4P/1R1QKBNR w K - 2 11
     <BLANKLINE>
+    >>> b = Board('1nb5/r5P1/p1k5/1pPp4/1P1Rr3/B3P3/P5Bp/b3K3 w - - 1 47')
+    >>> print(b)
+       a b c d e f g h
+    8  _ ♞ ♝ _ _ _ _ _  8
+    7  ♜ _ _ _ _ _ ♙ _  7
+    6  ♟ _ ♚ _ _ _ _ _  6
+    5  _ ♟ ♙ ♟ _ _ _ _  5
+    4  _ ♙ _ ♖ ♜ _ _ _  4
+    3  ♗ _ _ _ ♙ _ _ _  3
+    2  ♙ _ _ _ _ _ ♗ ♟  2
+    1  ♝ _ _ _ ♔ _ _ _  1
+       a b c d e f g h
+    1nb5/r5P1/p1k5/1pPp4/1P1Rr3/B3P3/P5Bp/b3K3 w - - 1 47
+    <BLANKLINE>
+    >>> try:
+    ...     b.make_move(Move(Location('g7'), Location('g8')))
+    ... except PawnNeedsPromotionError as exp:
+    ...     print(exp)
+    To move the pawn to g8, specify the type of piece to promote the pawn to. Select from [q, r, n, b]. The move given was g7g8
+    >>> pawn = b.get_piece_at(Location(algebraic='g7'))
+    >>> moves = pawn.all_legal_moves
+    >>> print(moves)
+    [g7g8=q, g7g8=r, g7g8=n, g7g8=b]
+    >>> b.make_move(Move(Location('g7'), Location('g8'), promotion='n'))
+    >>> print(b)
+       a b c d e f g h
+    8  _ ♞ ♝ _ _ _ ♘ _  8
+    7  ♜ _ _ _ _ _ _ _  7
+    6  ♟ _ ♚ _ _ _ _ _  6
+    5  _ ♟ ♙ ♟ _ _ _ _  5
+    4  _ ♙ _ ♖ ♜ _ _ _  4
+    3  ♗ _ _ _ ♙ _ _ _  3
+    2  ♙ _ _ _ _ _ ♗ ♟  2
+    1  ♝ _ _ _ ♔ _ _ _  1
+       a b c d e f g h
+    1nb3N1/r7/p1k5/1pPp4/1P1Rr3/B3P3/P5Bp/b3K3 b - - 0 47
+    <BLANKLINE>
     """
+
+    # NOTE this test only works when calls to input() are commented out)
+    for n in range(num_games):
+        n = play(RandomPlayer(), RandomPlayer(), print_visuals=False)
+        print('Winner:', n)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('num_games', type=int)
+    args = parser.parse_args()
+    test(args.num_games)
