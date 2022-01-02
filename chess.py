@@ -81,6 +81,12 @@ class Move:
         eq_promotions = self.promotion == other.promotion
         return eq_origins and eq_targets and eq_promotions
 
+    def __repr__(self) -> str:
+        if self.promotion:
+            return str(self.origin.algebraic) + str(
+                self.target.algebraic) + '=' + self.promotion
+        return str(self.origin.algebraic) + str(self.target.algebraic)
+
 
 class Board:
     """
@@ -135,27 +141,29 @@ class Board:
         self.full_move_number = int(fen[5])
 
     def make_move(self, move: Move) -> None:
-        """ If given move is illegal, raise IllegalMoveError, otherwise make the move."""
+        """ If given move is illegal, raise IllegalMoveError, otherwise make
+        the move."""
         origin = move.origin
         target = move.target
+        promotion = False
         piece_to_move = self.board_rep[origin.row][origin.col]
 
-        # if the move is not legal, an error will be thrown in the next two lines
-        self.is_legal_move_general(origin, target)
-        piece_to_move.is_legal(move)
-
         pawn_was_moved = isinstance(piece_to_move, Pawn)
-
         if pawn_was_moved:
             if target.row == piece_to_move.last_row:
                 if move.promotion is None:
-                    raise PawnNeedsPromotion
-                color = piece_to_move.color
-                location = piece_to_move.location
-                board = piece_to_move.board
-                piece_to_move = PIECE_TYPES[move.promotion](location, color, board)
+                    raise PawnNeedsPromotionError(
+                        f'To move the pawn to {target.algebraic}, specify the ' \
+                        + 'type of piece to promote the pawn to. Select from ' \
+                        + f'[q, r, n, b]. The move given was {move}'
+                    )
+                promotion = True
 
-
+        # if the move is not legal, IllegalMoveError will be thrown in the next two lines
+        self.is_legal_move_general(origin, target)
+        piece_to_move.is_legal(move)
+        if not promotion and move.promotion:
+            raise IllegalMoveError(f'Promotion is not valid for this move.')
 
         en_passant_capture = self.en_passant_target == target and pawn_was_moved
         self.update_en_passant_target(origin, target, pawn_was_moved)
@@ -179,6 +187,11 @@ class Board:
             self.board_rep[castle_orig_location.row][
                 castle_orig_location.col] = Board.empty
 
+        if promotion:
+            piece_to_move = PIECE_TYPES[move.promotion](
+                location=target,
+                color=piece_to_move.color,
+                board=piece_to_move.board)
         self.who = Color.other(self.who)
         piece_to_move.location = target
         self.board_rep[target.row][target.col] = piece_to_move
@@ -643,14 +656,14 @@ class Pawn(Piece):
     def __init__(self, location: Location, color: Color, board):
         if color == Color.WHITE:
             symbol = "\N{white chess pawn}"
-            self.starting_row = 6 # in 8x8 matrix coords
+            self.starting_row = 6  # in 8x8 matrix coords
             self.forward = -1
-            self.last_row = 0 # in 8x8 matrix coords
+            self.last_row = 0  # in 8x8 matrix coords
         else:
             symbol = "\N{black chess pawn}"
-            self.starting_row = 1 # in 8x8 matrix coords
+            self.starting_row = 1  # in 8x8 matrix coords
             self.forward = 1
-            self.last_row = 7 # in 8x8 matrix coords
+            self.last_row = 7  # in 8x8 matrix coords
         super().__init__(location, color, board, symbol)
 
     def move_generator(self):
@@ -664,10 +677,7 @@ class Pawn(Piece):
         one_sqr_fwd = Location(row_col=(self.row + self.forward, self.col))
         if one_sqr_fwd.in_bounds \
                 and self.board.board_rep[one_sqr_fwd.row][one_sqr_fwd.col] is Board.empty:
-            if one_sqr_fwd.row == self.last_row:
-                yield from self.promotion_move_generator(one_sqr_fwd)
-            else:
-                yield Move(self.location, one_sqr_fwd)
+            yield from self.promotion_move_generator(one_sqr_fwd)
 
         two_sqr_fwd = Location(row_col=(self.row + 2 * self.forward, self.col))
         if self.row == self.starting_row \
@@ -681,19 +691,23 @@ class Pawn(Piece):
                                          self.col + 1))
         if attack_right.in_bounds \
                 and opp_squares[attack_right.row][attack_right.col]:
-            yield Move(self.location, attack_right)
+            yield from self.promotion_move_generator(attack_right)
 
         attack_left = Location(row_col=(self.row + self.forward, self.col - 1))
         if attack_left.in_bounds and opp_squares[attack_left.row][
                 attack_left.col]:
-            yield Move(self.location, attack_left)
+            yield from self.promotion_move_generator(attack_left)
 
     def promotion_move_generator(self, target: Location) -> tuple:
-        """ Return a generator which yields moves where the pawn is promoted."""
-        yield Move(self.location, target, 'q')
-        yield Move(self.location, target, 'r')
-        yield Move(self.location, target, 'n')
-        yield Move(self.location, target, 'b')
+        """ Return a generator which yields the moves where the pawn is
+        promoted if the pawn has reached the end of the board."""
+        if target.row == self.last_row:
+            yield Move(self.location, target, 'q')
+            yield Move(self.location, target, 'r')
+            yield Move(self.location, target, 'n')
+            yield Move(self.location, target, 'b')
+        else:
+            yield Move(self.location, target)
 
 
 PIECE_TYPES = {
@@ -710,7 +724,7 @@ class IllegalMoveError(Exception):
     """ An error that is raised when illegal moves are attempted."""
 
 
-class PawnNeedsPromotion(Exception):
+class PawnNeedsPromotionError(Exception):
     """ An error that is raised board.make_move is instructed to move a pawn to
     the end of the board without specifying the piece to promote the pawn to."""
 
@@ -731,11 +745,26 @@ def play(p_0, p_1, print_visuals=True):
 
     cur_player = p_0
     board = Board()
+    history = [board.fen_str]
     game_over = False
     while not game_over:
+
         if print_visuals:
             print(board)
             print(f"It is {board.who.name.lower()}'s turn.")
+
+            ## TODO implement redo functionality
+
+            if input("Enter 'u' to undo the last move, or nothing to skip: "
+                     ) == 'u':
+                if history:
+                    board = Board(history.pop())
+                clear_screen()
+                continue
+
+            if not history or (history[-1] != board.fen_str):
+                history.append(board.fen_str)
+
         move = cur_player.move(board)
         try:
             board.make_move(move)
@@ -746,6 +775,7 @@ def play(p_0, p_1, print_visuals=True):
                 game_over = True
             if print_visuals:
                 clear_screen()
+            history.append(board.fen_str)
         except IllegalMoveError as exp:
             if print_visuals:
                 clear_screen()
@@ -754,6 +784,9 @@ def play(p_0, p_1, print_visuals=True):
             if print_visuals:
                 clear_screen()
                 print(str(exp) + "\n")
+        except PawnNeedsPromotionError as exp:
+            print(board.fen_str)
+            raise Exception(f'{exp}\n{board.fen_str}')
 
     if board.checkmate(Color.WHITE):
         winner = 'b'
@@ -769,9 +802,9 @@ def play(p_0, p_1, print_visuals=True):
             print("White wins!")
         else:
             print("Draw.")
-    print('all_legal_moves_count:', all_legal_moves_count)
-    print('checkmatecount:', checkmatecount)
-    print('is_legal_dest_count:', is_legal_dest_count)
-    print(board.fen_str)
+        print('all_legal_moves_count:', all_legal_moves_count)
+        print('checkmatecount:', checkmatecount)
+        print('is_legal_dest_count:', is_legal_dest_count)
+        print(board.fen_str)
 
     return winner
