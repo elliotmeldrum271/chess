@@ -40,15 +40,19 @@ class HumanPlayer:
 
 class RandomPlayer:
     """ A class that makes a random legal move."""
-    @classmethod
-    def move(cls, board) -> Move:
+
+    def __init__(self, print_visuals=False):
+        self.print_visuals = print_visuals
+
+
+    def move(self, board) -> Move:
         """ Return a random move."""
         pieces = board.color_pieces_flat(board.who)
         moves = []
         for piece in pieces:
-            moves.extend([move for move in
-                          piece.all_legal_moves])
+            moves.extend(piece.all_legal_moves)
         move = random.choice(moves)
-        #  print(move[0].algebraic, move[1].algebraic)
-        input()
+        if self.print_visuals:
+            print(move.origin.algebraic, move.target.algebraic)
+            input()
         return move
