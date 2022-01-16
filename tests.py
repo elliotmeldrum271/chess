@@ -18,8 +18,9 @@ TODO:
 """
 
 import argparse
+import time
 from chess import *
-from players import RandomPlayer
+from players import RandomPlayer, MiniMax
 
 
 def test(num_games):
@@ -548,9 +549,16 @@ def test(num_games):
     <BLANKLINE>
     """
 
-    # NOTE this test only works when calls to input() are commented out)
+
+def run_games(num_games: int):
+    """ Play games with random players to ensure things are running smoothly.
+    """
+
+    # NOTE make sure there are no calls to input()
     for n in range(num_games):
-        n = play(RandomPlayer(), RandomPlayer(), print_visuals=False)
+        n = play(MiniMax(),
+                 MiniMax(1),
+                 print_visuals=False)
         print('Winner:', n)
 
 
@@ -558,4 +566,4 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('num_games', type=int)
     args = parser.parse_args()
-    test(args.num_games)
+    run_games(args.num_games)

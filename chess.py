@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-""" A standalone chess game.
-TODO:
-    -handle pawn promotion appropriately
-"""
+""" A chess engine."""
 
-from os import system
+import os
 from enum import Enum
 from typing import List
 
@@ -14,7 +11,7 @@ is_legal_dest_count = 0
 
 
 class Color(Enum):
-    """Colors."""
+    """ Colors."""
     WHITE = 0
     BLACK = 1
 
@@ -29,19 +26,21 @@ class Color(Enum):
 
 
 class Location:
-    """ Hold information about a particular location."""
+    """ Hold information about a particular location.
+    row_col refers to the indices of the location in an 8x8 matrix.
+    """
     def __init__(self, algebraic: str = None, row_col: tuple = None):
         if algebraic is not None:
             self.algebraic = algebraic
             if self.algebraic == "-":
-                self.row, self.col = -1, -1
+                self.row = self.col = -1
             else:
                 self.row, self.col = Location.row_col_from_algebraic(algebraic)
         elif row_col is not None:
             self.row, self.col = row_col
             self.algebraic = Location.algebraic_from_row_col(row_col)
         else:
-            raise Exception("bad inputs")
+            raise Exception('Location instantiated with bad inputs.')
 
     @classmethod
     def algebraic_from_row_col(cls, row_col: tuple) -> str:
@@ -53,7 +52,7 @@ class Location:
 
     @classmethod
     def row_col_from_algebraic(cls, algebraic: str) -> tuple:
-        """ Return a tuple containing the location of algebraic as indexes into an 8x8 matrix."""
+        """ Return a tuple containing the location of algebraic as indices into an 8x8 matrix."""
         def letter_to_idx(ltr: str) -> int:
             return ord(ltr) - 97
 
@@ -89,8 +88,7 @@ class Move:
 
 
 class Board:
-    """
-    A class to represent a chess board.
+    """ A class to represent a chess board.
 
     board_rep:          An 8x8 matrix, where each element is either a piece or Board.empty.
     castling_rights:    A list describing each player's castling rights.
@@ -303,7 +301,15 @@ class Board:
         for piece in self.color_pieces_flat(color):
             if isinstance(piece, King):
                 return piece
-        raise Exception("king not found")
+        raise Exception("Something went wrong. King not found")
+
+    @property
+    def all_legal_moves(self) -> List[Move]:
+        """ Return a list of all legal moves for the current player to make."""
+        moves = []
+        for piece in self.color_pieces_flat(self.who):
+            moves.extend(piece.all_legal_moves)
+        return moves
 
     @property
     def fen_str(self) -> str:
@@ -312,7 +318,7 @@ class Board:
             for k, v in PIECE_TYPES.items():
                 if v == typ:
                     return k
-            raise Exception("unknown piece type")
+            raise Exception(f"Something went wrong. Unknown piece type. {typ}")
 
         fen_str = ""
         for row in self.board_rep:
@@ -341,7 +347,7 @@ class Board:
 
     @property
     def flat_board_rep(self) -> list:
-        """ A 64 element list representing the board."""
+        """ A 64 element list of pieces representing the board."""
         flat_board = []
         for row in self.board_rep:
             flat_board.extend(row)
@@ -725,15 +731,18 @@ class IllegalMoveError(Exception):
 
 
 class PawnNeedsPromotionError(Exception):
-    """ An error that is raised board.make_move is instructed to move a pawn to
-    the end of the board without specifying the piece to promote the pawn to."""
+    """ An error that is raised when board.make_move is instructed to move a
+    pawn to the end of the board without specifying the piece to promote the
+    pawn to.
+    """
 
 
 def clear_screen():
     """ Clear the screen and move the cursor down 10 lines."""
-    system("clear")
-    for _ in range(9):
-        print()
+    #  os.system("clear")
+    #  for _ in range(9):
+    #      print()
+    print('\n\n\n\n')
 
 
 def play(p_0, p_1, print_visuals=True):
@@ -753,14 +762,14 @@ def play(p_0, p_1, print_visuals=True):
             print(board)
             print(f"It is {board.who.name.lower()}'s turn.")
 
-            ## TODO implement redo functionality
-
-            if input("Enter 'u' to undo the last move, or nothing to skip: "
-                     ) == 'u':
-                if history:
-                    board = Board(history.pop())
-                clear_screen()
-                continue
+            #  ## TODO implement redo functionality
+            #
+            #  if input("Enter 'u' to undo the last move, or nothing to skip: "
+            #           ) == 'u':
+            #      if history:
+            #          board = Board(history.pop())
+            #      clear_screen()
+            #      continue
 
             if not history or (history[-1] != board.fen_str):
                 history.append(board.fen_str)
@@ -786,7 +795,9 @@ def play(p_0, p_1, print_visuals=True):
                 print(str(exp) + "\n")
         except PawnNeedsPromotionError as exp:
             print(board.fen_str)
-            raise Exception(f'{exp}\n{board.fen_str}')
+            raise Exception(
+                f'{exp}\n{board.fen_str}'
+            )  # TODO raise from ?? idk pylint is telling me i should use raise from, look this up when get into wifi
 
     if board.checkmate(Color.WHITE):
         winner = 'b'
